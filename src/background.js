@@ -1,6 +1,6 @@
 'use strict'
-
-import { app, protocol, BrowserWindow } from 'electron'
+const path = require('path')
+import { app, protocol, BrowserWindow, ipcMain } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
 const isDevelopment = process.env.NODE_ENV !== 'production'
@@ -15,12 +15,18 @@ async function createWindow() {
   const win = new BrowserWindow({
     width: 800,
     height: 600,
+    minWidth: 800,
+    minHeight: 600,
+    frame: false,  // 控制系统菜单栏显示与否
+    titleBarStyle: 'customButtonsOnHover',  // 隐藏mac左上角的红绿灯
     webPreferences: {
-      
+
       // Use pluginOptions.nodeIntegration, leave this alone
       // See nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration for more info
       nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION,
-      contextIsolation: !process.env.ELECTRON_NODE_INTEGRATION
+      contextIsolation: !process.env.ELECTRON_NODE_INTEGRATION,
+      enableRemoteModule: true,
+      preload: path.join(__dirname, 'preload.js'),
     }
   })
 
@@ -33,6 +39,31 @@ async function createWindow() {
     // Load the index.html when not in development
     win.loadURL('app://./index.html')
   }
+
+  //接收最小化命令
+  ipcMain.on('window-min', () => {
+    win.minimize();
+  })
+  //接收最大化命令
+  ipcMain.on('window-max', () => {
+    if (win.isMaximized()) {
+      win.restore();
+    } else {
+      win.maximize();
+    }
+  })
+  //接收关闭命令
+  ipcMain.on('window-close', () => {
+    win.close();
+  })
+  // 监听窗口最大化命令
+  win.on('maximize', () => {
+    win.webContents.send('main-window-max');
+  })
+  // 监听窗口取消最大化命令
+  win.on('unmaximize', () => {
+    win.webContents.send('main-window-unmax');
+  })
 }
 
 // Quit when all windows are closed.
